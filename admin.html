@@ -8,33 +8,89 @@
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 20px; background-color: #f9f9f9; }
         h2 { color: #4827AF; margin-top: 0; }
-        #map { height: 600px; width: 100%; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
-        .form-popup { padding: 5px; font-size: 14px; }
-        .form-popup label { display: block; margin-top: 8px; font-weight: bold; color: #333; }
+        #map { height: 650px; width: 100%; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+        
+        /* Űrlap és elemek formázása */
+        .form-popup { width: 260px; font-size: 14px; padding: 5px; }
+        .form-popup label { display: block; margin-top: 10px; font-weight: bold; color: #333; }
         .form-popup input { width: 100%; padding: 6px; margin-top: 4px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
-        .form-popup button { width: 100%; margin-top: 12px; padding: 8px; background-color: #FF4208; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; }
-        .form-popup button:hover { background-color: #d63600; }
+        
+        /* Állítható nagyságú szövegdobozok (textarea) */
+        .form-popup textarea { width: 100%; min-height: 50px; max-height: 150px; padding: 6px; margin-top: 4px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; resize: vertical; font-family: inherit; }
+        
+        /* Kategória gombok */
+        .cat-container { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+        .cat-btn { background: #fff; border: 1px solid #ccc; padding: 5px 10px; border-radius: 20px; font-size: 12px; cursor: pointer; transition: all 0.2s; }
+        .cat-btn.selected { background: #FF4208; color: white; border-color: #FF4208; font-weight: bold; }
+        
+        /* Fő típusválasztó gombok */
+        .type-select { display: flex; gap: 10px; margin-bottom: 10px; }
+        .type-btn { flex: 1; padding: 8px; border: 2px solid #ccc; border-radius: 6px; font-weight: bold; cursor: pointer; text-align: center; }
+        .type-btn.prob { border-color: #FF4208; color: #FF4208; background: #fff; }
+        .type-btn.prob.active { background: #FF4208; color: white; }
+        .type-btn.lux { border-color: #4827AF; color: #4827AF; background: #fff; }
+        .type-btn.lux.active { background: #4827AF; color: white; }
+
+        .main-save-btn { width: 100%; margin-top: 15px; padding: 10px; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 14px; }
+        .bg-prob { background-color: #FF4208; }
+        .bg-prob:hover { background-color: #d63600; }
+        .bg-lux { background-color: #4827AF; }
+        .bg-lux:hover { background-color: #351c87; }
     </style>
 </head>
 <body>
 
     <h2>Nagykáta Problématérkép — Adminisztráció</h2>
-    <p>Kattints a térképre a 5 km-es körzeten belül egy új jelölő elhelyezéséhez!</p>
+    <p>Kattints a térképre az 5 km-es körzeten belül az új bejegyzéshez!</p>
     
     <div id="map"></div>
 
     <div id="popup-form-template" style="display: none;">
         <div class="form-popup">
-            <label>Mi a probléma?</label>
-            <input type="text" id="p-title" placeholder="Pl. Kátyú, Kóbor kutya">
+            <div class="type-select">
+                <div class="type-btn prob active" onclick="switchType('problem')">Probléma</div>
+                <div class="type-btn lux" onclick="switchType('lux')">Közpénz-luxus</div>
+            </div>
+
+            <div id="form-problem-section">
+                <label>Probléma leírása (állítható méretű):</label>
+                <textarea id="p-desc" placeholder="Mi a gond? (pl. Kátyú, gaz, szemét...)"></textarea>
+
+                <label>Kategória:</label>
+                <div class="cat-container">
+                    <div class="cat-btn" onclick="selectCat(this, 'Úthiba')">Úthiba</div>
+                    <div class="cat-btn" onclick="selectCat(this, 'Közvilágítás')">Közvilágítás</div>
+                    <div class="cat-btn" onclick="selectCat(this, 'Zöldterület')">Zöldterület</div>
+                    <div class="cat-btn" onclick="selectCat(this, 'Hulladék')">Hulladék</div>
+                    <div class="cat-btn" onclick="selectCat(this, 'Közbiztonság')">Közbiztonság</div>
+                    <div class="cat-btn" onclick="selectCat(this, 'Egyéb')">Egyéb</div>
+                </div>
+
+                <label>Megoldási javaslat:</label>
+                <textarea id="p-solution" placeholder="Hogyan lehetne javítani?"></textarea>
+                
+                <label>Ki a felelős?</label>
+                <input type="text" id="p-owner" placeholder="Pl. Önkormányzat">
+                
+                <label>Becsült költség (Ft):</label>
+                <input type="number" id="p-cost" placeholder="Pl. 50000">
+            </div>
+
+            <div id="form-lux-section" style="display: none;">
+                <label>Mutatvány / Luxizás leírása:</label>
+                <textarea id="l-desc" placeholder="Mi történt? Hova tűnt a pénz?"></textarea>
+
+                <label>Kik vettek részt benne?</label>
+                <input type="text" id="l-actors" placeholder="Pl. X.Y. vállalkozó, politikus">
+
+                <label>Időszak / Dátum:</label>
+                <input type="text" id="l-date" placeholder="Pl. 2026 tavasza">
+
+                <label>Becsült elherdált összeg (Ft):</label>
+                <input type="number" id="l-cost" placeholder="Pl. 15000000">
+            </div>
             
-            <label>Ki a felelős?</label>
-            <input type="text" id="p-owner" placeholder="Pl. Önkormányzat, Közút">
-            
-            <label>Becsült költség (Ft):</label>
-            <input type="number" id="p-cost" placeholder="Pl. 50000">
-            
-            <button id="save-btn">Mentés az adatbázisba</button>
+            <button id="save-btn" class="main-save-btn bg-prob">Mentés az adatbázisba</button>
         </div>
     </div>
 
@@ -44,7 +100,6 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getDatabase, ref, push, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-        // A te egyedi Firebase konfigurációd
         const firebaseConfig = {
             apiKey: "AIzaSyDCICsJnMdxTXDpRSNpaCtdAWAP3-sH8i4",
             authDomain: "nagykata-problema-terkep.firebaseapp.com",
@@ -55,96 +110,134 @@
             appId: "1:1096765055226:web:b06fd311003cfc2d5d6943"
         };
 
-        // Firebase inicializálása
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
         const markersRef = ref(db, 'problems');
 
-        // Térkép beállítása Nagykáta középponttal
         const nagykataCoords = [47.4161, 19.7423];
-        const maxDistance = 5000; // 5000 méter = 5 km
+        const maxDistance = 5000;
 
         var map = L.map('map').setView(nagykataCoords, 13);
 
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap közreműködők'
+            attribution: '© OpenStreetMap'
         }).addTo(map);
 
-        // 5 km-es működési körzet kirajzolása lila szegéllyel
-        L.circle(nagykataCoords, {
-            color: '#4827AF',
-            fillColor: '#4827AF',
-            fillOpacity: 0.05,
-            radius: maxDistance
-        }).addTo(map);
+        L.circle(nagykataCoords, { color: '#4827AF', fillColor: '#4827AF', fillOpacity: 0.03, radius: maxDistance }).addTo(map);
 
         var temporaryMarker;
         var clickedLatLng;
+        
+        // Globális segédváltozók az űrlaphoz
+        window.currentType = 'problem';
+        window.selectedCategory = '';
 
-        // Már meglévő pontok betöltése és megjelenítése az adminnak is
+        // Típusváltás (Probléma <-> Luxus)
+        window.switchType = function(type) {
+            window.currentType = type;
+            const probBtn = document.querySelector('.leaflet-popup .type-btn.prob');
+            const luxBtn = document.querySelector('.leaflet-popup .type-btn.lux');
+            const probSec = document.getElementById('form-problem-section');
+            const luxSec = document.getElementById('form-lux-section');
+            const saveBtn = document.getElementById('save-btn');
+
+            if(type === 'problem') {
+                probBtn.classList.add('active');
+                luxBtn.classList.remove('active');
+                probSec.style.display = 'block';
+                luxSec.style.display = 'none';
+                saveBtn.className = "main-save-btn bg-prob";
+            } else {
+                luxBtn.classList.add('active');
+                probBtn.classList.remove('active');
+                probSec.style.display = 'none';
+                luxSec.style.display = 'block';
+                saveBtn.className = "main-save-btn bg-lux";
+            }
+        };
+
+        // Gombos kategória választó
+        window.selectCat = function(elem, catName) {
+            document.querySelectorAll('.leaflet-popup .cat-btn').forEach(b => b.classList.remove('selected'));
+            elem.classList.add('selected');
+            window.selectedCategory = catName;
+        };
+
+        // Adatbázisból betöltés nagyobb, egyedi színes körökkel
         onValue(markersRef, (snapshot) => {
-            // Meglévő fix markerek törlése újratöltés előtt (hogy ne duplázódjanak)
             map.eachLayer((layer) => {
-                if (layer instanceof L.Marker && layer !== temporaryMarker) {
-                    map.removeLayer(layer);
-                }
+                if (layer instanceof L.CircleMarker && layer !== temporaryMarker) { map.removeLayer(layer); }
             });
 
             const data = snapshot.val();
             if (data) {
                 Object.keys(data).forEach(key => {
-                    const prob = data[key];
-                    L.marker([prob.lat, prob.lng]).addTo(map)
-                        .bindPopup(`<b>Probléma:</b> ${prob.title}<br><b>Felelős:</b> ${prob.owner}<br><b>Költség:</b> ${prob.cost ? Number(prob.cost).toLocaleString() : 0} Ft`);
+                    const item = data[key];
+                    const isProb = item.type !== 'lux';
+                    
+                    // Nagyobb kör alakú dizájn jelölő (14px sugár)
+                    L.circleMarker([item.lat, item.lng], {
+                        radius: 14,
+                        fillColor: isProb ? '#FF4208' : '#4827AF',
+                        color: '#fff',
+                        weight: 2,
+                        opacity: 1,
+                        fillOpacity: 0.85
+                    }).addTo(map).bindPopup(
+                        isProb 
+                        ? `<b>[Probléma - ${item.category}]</b><br>${item.desc}<br><b>Javaslat:</b> ${item.solution}<br><b>Felelős:</b> ${item.owner}<br><b>Költség:</b> ${Number(item.cost).toLocaleString()} Ft`
+                        : `<b>[Közpénz-luxus]</b><br>${item.desc}<br><b>Résztvevők:</b> ${item.actors}<br><b>Dátum:</b> ${item.date}<br><b>Összeg:</b> ${Number(item.cost).toLocaleString()} Ft`
+                    );
                 });
             }
         });
 
-        // Kattintás figyelése új pont felvételéhez
+        // Kattintás kezelés
         map.on('click', function(e) {
             let distance = map.distance(e.latlng, nagykataCoords);
-
-            if (distance > maxDistance) {
-                alert("Hiba: Ez a pont kívül esik Nagykáta 5 km-es körzetén!");
-                return;
-            }
+            if (distance > maxDistance) { alert("Hiba: Kívül esik a 5 km-es körzeten!"); return; }
 
             clickedLatLng = e.latlng;
-
             if (temporaryMarker) { map.removeLayer(temporaryMarker); }
 
-            temporaryMarker = L.marker(e.latlng).addTo(map);
+            // Az adminnak is nagyobb kört mutatunk lerakáskor
+            temporaryMarker = L.circleMarker(e.latlng, { radius: 14, fillColor: '#FF4208', color: '#fff', weight: 2, fillOpacity: 0.6 }).addTo(map);
+            
             let formContent = document.getElementById('popup-form-template').innerHTML;
-            temporaryMarker.bindPopup(formContent).openPopup();
+            temporaryMarker.bindPopup(formContent, { maxWidth: 280 }).openPopup();
 
-            // Kis időt hagyunk a popup-nak, hogy legenerálódjon a DOM-ban, majd rákötjük a gombra a mentést
+            window.currentType = 'problem';
+            window.selectedCategory = '';
+
             setTimeout(() => {
                 const saveBtn = document.querySelector('.leaflet-popup #save-btn');
                 if (saveBtn) {
                     saveBtn.onclick = function() {
-                        let title = document.querySelector('.leaflet-popup #p-title').value;
-                        let owner = document.querySelector('.leaflet-popup #p-owner').value;
-                        let cost = document.querySelector('.leaflet-popup #p-cost').value;
+                        let dataToSave = { lat: clickedLatLng.lat, lng: clickedLatLng.lng, type: window.currentType };
 
-                        if(!title) { alert("A probléma megnevezése kötelező!"); return; }
+                        if(window.currentType === 'problem') {
+                            dataToSave.desc = document.querySelector('.leaflet-popup #p-desc').value;
+                            dataToSave.category = window.selectedCategory || 'Egyéb';
+                            dataToSave.solution = document.querySelector('.leaflet-popup #p-solution').value || 'Nincs javaslat';
+                            dataToSave.owner = document.querySelector('.leaflet-popup #p-owner').value || 'Nem ismert';
+                            dataToSave.cost = document.querySelector('.leaflet-popup #p-cost').value || 0;
+                            if(!dataToSave.desc) { alert("A leírás kötelező!"); return; }
+                        } else {
+                            dataToSave.desc = document.querySelector('.leaflet-popup #l-desc').value;
+                            dataToSave.actors = document.querySelector('.leaflet-popup #l-actors').value || 'Nem ismert';
+                            dataToSave.date = document.querySelector('.leaflet-popup #l-date').value || 'Nincs megadva';
+                            dataToSave.cost = document.querySelector('.leaflet-popup #l-cost').value || 0;
+                            if(!dataToSave.desc) { alert("A mutyi leírása kötelező!"); return; }
+                        }
 
-                        // Adatküldés a Firebase-nek
-                        push(markersRef, {
-                            lat: clickedLatLng.lat,
-                            lng: clickedLatLng.lng,
-                            title: title,
-                            owner: owner,
-                            cost: cost
-                        }).then(() => {
+                        push(markersRef, dataToSave).then(() => {
                             map.closePopup();
                             map.removeLayer(temporaryMarker);
                             temporaryMarker = null;
-                        }).catch((error) => {
-                            alert("Hiba történt a mentés során: " + error.message);
                         });
                     };
                 }
-            }, 100);
+            }, 150);
         });
     </script>
 </body>
