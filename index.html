@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nagykáta és környéke — Problématérkép</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 20px; background-color: #f9f9f9; }
+        h2 { color: #4827AF; margin-top: 0; }
+        #map { height: 600px; width: 100%; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+        .popup-info { font-size: 14px; line-height: 1.4; }
+        .popup-info b { color: #4827AF; }
+        .cost-tag { color: #FF4208; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <h2>Nagykáta és környéke — Lakossági Problématérkép</h2>
+    <p>Kattints a térképen lévő jelölőkre a bejelentett problémák részleteinek megtekintéséhez.</p>
+    
+    <div id="map"></div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+        // Firebase konfiguráció
+        const firebaseConfig = {
+            apiKey: "AIzaSyDCICsJnMdxTXDpRSNpaCtdAWAP3-sH8i4",
+            authDomain: "nagykata-problema-terkep.firebaseapp.com",
+            databaseURL: "https://nagykata-problema-terkep-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "nagykata-problema-terkep",
+            storageBucket: "nagykata-problema-terkep.firebasestorage.app",
+            messagingSenderId: "1096765055226",
+            appId: "1:1096765055226:web:b06fd311003cfc2d5d6943"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+        const markersRef = ref(db, 'problems');
+
+        // Térkép betöltése
+        var map = L.map('map').setView([47.4161, 19.7423], 13);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap közreműködők'
+        }).addTo(map);
+
+        // Adatok folyamatos, valós idejű beolvasása az adatbázisból
+        onValue(markersRef, (snapshot) => {
+            // Térkép tisztítása az újrarajzolás előtt
+            map.eachLayer((layer) => {
+                if (layer instanceof L.Marker) {
+                    map.removeLayer(layer);
+                }
+            });
+
+            const data = snapshot.val();
+            if (data) {
+                Object.keys(data).forEach(key => {
+                    const prob = data[key];
+                    
+                    // Formázott felugró ablak tartalom
+                    let popupContent = `
+                        <div class="popup-info">
+                            <b>Probléma:</b> ${prob.title}<br>
+                            <b>Felelős:</b> ${prob.owner ? prob.owner : 'Nincs megadva'}<br>
+                            <b>Becsült költség:</b> <span class="cost-tag">${prob.cost ? Number(prob.cost).toLocaleString() : '0'} Ft</span>
+                        </div>
+                    `;
+
+                    L.marker([prob.lat, prob.lng]).addTo(map).bindPopup(popupContent);
+                });
+            }
+        });
+    </script>
+</body>
+</html>

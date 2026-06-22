@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Problématérkép - Admin Felület</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 20px; background-color: #f9f9f9; }
+        h2 { color: #4827AF; margin-top: 0; }
+        #map { height: 600px; width: 100%; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+        .form-popup { padding: 5px; font-size: 14px; }
+        .form-popup label { display: block; margin-top: 8px; font-weight: bold; color: #333; }
+        .form-popup input { width: 100%; padding: 6px; margin-top: 4px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        .form-popup button { width: 100%; margin-top: 12px; padding: 8px; background-color: #FF4208; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; }
+        .form-popup button:hover { background-color: #d63600; }
+    </style>
+</head>
+<body>
+
+    <h2>Nagykáta Problématérkép — Adminisztráció</h2>
+    <p>Kattints a térképre a 5 km-es körzeten belül egy új jelölő elhelyezéséhez!</p>
+    
+    <div id="map"></div>
+
+    <div id="popup-form-template" style="display: none;">
+        <div class="form-popup">
+            <label>Mi a probléma?</label>
+            <input type="text" id="p-title" placeholder="Pl. Kátyú, Kóbor kutya">
+            
+            <label>Ki a felelős?</label>
+            <input type="text" id="p-owner" placeholder="Pl. Önkormányzat, Közút">
+            
+            <label>Becsült költség (Ft):</label>
+            <input type="number" id="p-cost" placeholder="Pl. 50000">
+            
+            <button id="save-btn">Mentés az adatbázisba</button>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getDatabase, ref, push, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+        // A te egyedi Firebase konfigurációd
+        const firebaseConfig = {
+            apiKey: "AIzaSyDCICsJnMdxTXDpRSNpaCtdAWAP3-sH8i4",
+            authDomain: "nagykata-problema-terkep.firebaseapp.com",
+            databaseURL: "https://nagykata-problema-terkep-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "nagykata-problema-terkep",
+            storageBucket: "nagykata-problema-terkep.firebasestorage.app",
+            messagingSenderId: "1096765055226",
+            appId: "1:1096765055226:web:b06fd311003cfc2d5d6943"
+        };
+
+        // Firebase inicializálása
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+        const markersRef = ref(db, 'problems');
+
+        // Térkép beállítása Nagykáta középponttal
+        const nagykataCoords = [47.4161, 19.7423];
+        const maxDistance = 5000; // 5000 méter = 5 km
+
+        var map = L.map('map').setView(nagykataCoords, 13);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap közreműködők'
+        }).addTo(map);
+
+        // 5 km-es működési körzet kirajzolása lila szegéllyel
+        L.circle(nagykataCoords, {
+            color: '#4827AF',
+            fillColor: '#4827AF',
+            fillOpacity: 0.05,
+            radius: maxDistance
+        }).addTo(map);
+
+        var temporaryMarker;
+        var clickedLatLng;
+
+        // Már meglévő pontok betöltése és megjelenítése az adminnak is
+        onValue(markersRef, (snapshot) => {
+            // Meglévő fix markerek törlése újratöltés előtt (hogy ne duplázódjanak)
+            map.eachLayer((layer) => {
+                if (layer instanceof L.Marker && layer !== temporaryMarker) {
+                    map.removeLayer(layer);
+                }
+            });
+
+            const data = snapshot.val();
+            if (data) {
+                Object.keys(data).forEach(key => {
+                    const prob = data[key];
+                    L.marker([prob.lat, prob.lng]).addTo(map)
+                        .bindPopup(`<b>Probléma:</b> ${prob.title}<br><b>Felelős:</b> ${prob.owner}<br><b>Költség:</b> ${prob.cost ? Number(prob.cost).toLocaleString() : 0} Ft`);
+                });
+            }
+        });
+
+        // Kattintás figyelése új pont felvételéhez
+        map.on('click', function(e) {
+            let distance = map.distance(e.latlng, nagykataCoords);
+
+            if (distance > maxDistance) {
+                alert("Hiba: Ez a pont kívül esik Nagykáta 5 km-es körzetén!");
+                return;
+            }
+
+            clickedLatLng = e.latlng;
+
+            if (temporaryMarker) { map.removeLayer(temporaryMarker); }
+
+            temporaryMarker = L.marker(e.latlng).addTo(map);
+            let formContent = document.getElementById('popup-form-template').innerHTML;
+            temporaryMarker.bindPopup(formContent).openPopup();
+
+            // Kis időt hagyunk a popup-nak, hogy legenerálódjon a DOM-ban, majd rákötjük a gombra a mentést
+            setTimeout(() => {
+                const saveBtn = document.querySelector('.leaflet-popup #save-btn');
+                if (saveBtn) {
+                    saveBtn.onclick = function() {
+                        let title = document.querySelector('.leaflet-popup #p-title').value;
+                        let owner = document.querySelector('.leaflet-popup #p-owner').value;
+                        let cost = document.querySelector('.leaflet-popup #p-cost').value;
+
+                        if(!title) { alert("A probléma megnevezése kötelező!"); return; }
+
+                        // Adatküldés a Firebase-nek
+                        push(markersRef, {
+                            lat: clickedLatLng.lat,
+                            lng: clickedLatLng.lng,
+                            title: title,
+                            owner: owner,
+                            cost: cost
+                        }).then(() => {
+                            map.closePopup();
+                            map.removeLayer(temporaryMarker);
+                            temporaryMarker = null;
+                        }).catch((error) => {
+                            alert("Hiba történt a mentés során: " + error.message);
+                        });
+                    };
+                }
+            }, 100);
+        });
+    </script>
+</body>
+</html>
