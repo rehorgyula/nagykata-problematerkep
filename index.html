@@ -8,16 +8,18 @@
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 20px; background-color: #f9f9f9; }
         h2 { color: #4827AF; margin-top: 0; }
-        #map { height: 600px; width: 100%; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
-        .popup-info { font-size: 14px; line-height: 1.4; }
-        .popup-info b { color: #4827AF; }
-        .cost-tag { color: #FF4208; font-weight: bold; }
+        #map { height: 650px; width: 100%; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+        .popup-info { font-size: 14px; line-height: 1.5; min-width: 220px; }
+        .title-prob { color: #FF4208; font-weight: bold; border-bottom: 1px solid #eee; padding-bottom: 4px; margin-bottom: 6px; }
+        .title-lux { color: #4827AF; font-weight: bold; border-bottom: 1px solid #eee; padding-bottom: 4px; margin-bottom: 6px; }
+        .cost-tag { color: #e63c00; font-weight: bold; }
+        .cost-lux { color: #4827AF; font-weight: bold; }
     </style>
 </head>
 <body>
 
-    <h2>Nagykáta és környéke — Lakossági Problématérkép</h2>
-    <p>Kattints a térképen lévő jelölőkre a bejelentett problémák részleteinek megtekintéséhez.</p>
+    <h2>Nagykáta és környéke — Közösségi Térkép</h2>
+    <p>Narancssárga pontok: Lakossági problémák | Kék pontok: Közpénz-luxus bejegyzések</p>
     
     <div id="map"></div>
 
@@ -27,7 +29,6 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-        // Firebase konfiguráció
         const firebaseConfig = {
             apiKey: "AIzaSyDCICsJnMdxTXDpRSNpaCtdAWAP3-sH8i4",
             authDomain: "nagykata-problema-terkep.firebaseapp.com",
@@ -42,37 +43,55 @@
         const db = getDatabase(app);
         const markersRef = ref(db, 'problems');
 
-        // Térkép betöltése
         var map = L.map('map').setView([47.4161, 19.7423], 13);
 
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap közreműködők'
+            attribution: '© OpenStreetMap'
         }).addTo(map);
 
-        // Adatok folyamatos, valós idejű beolvasása az adatbázisból
         onValue(markersRef, (snapshot) => {
-            // Térkép tisztítása az újrarajzolás előtt
             map.eachLayer((layer) => {
-                if (layer instanceof L.Marker) {
-                    map.removeLayer(layer);
-                }
+                if (layer instanceof L.CircleMarker) { map.removeLayer(layer); }
             });
 
             const data = snapshot.val();
             if (data) {
                 Object.keys(data).forEach(key => {
-                    const prob = data[key];
+                    const item = data[key];
+                    const isProb = item.type !== 'lux';
                     
-                    // Formázott felugró ablak tartalom
-                    let popupContent = `
-                        <div class="popup-info">
-                            <b>Probléma:</b> ${prob.title}<br>
-                            <b>Felelős:</b> ${prob.owner ? prob.owner : 'Nincs megadva'}<br>
-                            <b>Becsült költség:</b> <span class="cost-tag">${prob.cost ? Number(prob.cost).toLocaleString() : '0'} Ft</span>
-                        </div>
-                    `;
+                    let popupContent = '';
 
-                    L.marker([prob.lat, prob.lng]).addTo(map).bindPopup(popupContent);
+                    if(isProb) {
+                        popupContent = `
+                            <div class="popup-info">
+                                <div class="title-prob">[Probléma] — ${item.category}</div>
+                                <b>Leírás:</b> ${item.desc}<br>
+                                <b>Javasolt megoldás:</b> ${item.solution}<br>
+                                <b>Felelős:</b> ${item.owner}<br>
+                                <b>Becsült költség:</b> <span class="cost-tag">${Number(item.cost).toLocaleString()} Ft</span>
+                            </div>
+                        `;
+                    } else {
+                        popupContent = `
+                            <div class="popup-info">
+                                <div class="title-lux">[Közpénz-luxus]</div>
+                                <b>Leírás:</b> ${item.desc}<br>
+                                <b>Érintettek/Résztvevők:</b> ${item.actors}<br>
+                                <b>Időszak:</b> ${item.date}<br>
+                                <b>Becsült összeg:</b> <span class="cost-lux">${Number(item.cost).toLocaleString()} Ft</span>
+                            </div>
+                        `;
+                    }
+
+                    L.circleMarker([item.lat, item.lng], {
+                        radius: 14,
+                        fillColor: isProb ? '#FF4208' : '#4827AF',
+                        color: '#fff',
+                        weight: 2,
+                        opacity: 1,
+                        fillOpacity: 0.85
+                    }).addTo(map).bindPopup(popupContent);
                 });
             }
         });
