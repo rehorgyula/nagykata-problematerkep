@@ -3,31 +3,104 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nagykáta és környéke — Problématérkép</title>
+    <title>Nagykáta és környéke — Civil Problématérkép</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 20px; background-color: #f9f9f9; }
-        h2 { color: #4827AF; margin-top: 0; }
-        #map { height: 650px; width: 100%; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
-        .popup-info { font-size: 14px; line-height: 1.5; min-width: 220px; }
-        .title-prob { color: #FF4208; font-weight: bold; border-bottom: 1px solid #eee; padding-bottom: 4px; margin-bottom: 6px; }
-        .title-lux { color: #4827AF; font-weight: bold; border-bottom: 1px solid #eee; padding-bottom: 4px; margin-bottom: 6px; }
-        .cost-tag { color: #e63c00; font-weight: bold; }
-        .cost-lux { color: #4827AF; font-weight: bold; }
+        :root { --primary: #4827AF; --secondary: #FF4208; --bg: #f4f5f9; --card-bg: #ffffff; --text: #333; }
+        body { font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 0; background-color: var(--bg); color: var(--text); display: flex; flex-direction: column; height: 100vh; }
+        
+        header { background: linear-gradient(135deg, var(--primary), #311980); color: white; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        header h1 { margin: 0; font-size: 24px; font-weight: 600; }
+        header p { margin: 5px 0 0 0; opacity: 0.8; font-size: 14px; }
+
+        .main-container { display: flex; flex: 1; overflow: hidden; padding: 20px; gap: 20px; box-sizing: border-box; }
+        
+        /* Bal oszlop: Info és Lista */
+        .sidebar { flex: 1; display: flex; flex-direction: column; gap: 20px; min-width: 320px; max-width: 450px; overflow-y: auto; }
+        .card { background: var(--card-bg); padding: 20px; border-radius: 12px; box-shadow: 0 4px 20px rgba(72,39,175,0.06); box-sizing: border-box; }
+        .card h3 { margin-top: 0; color: var(--primary); border-bottom: 2px solid #f0f0f5; padding-bottom: 8px; }
+        
+        .civil-info p { font-size: 13.5px; line-height: 1.6; color: #555; }
+        .civil-info ol { padding-left: 20px; font-size: 13px; color: #555; margin-bottom: 0; }
+
+        .search-box { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; margin-bottom: 12px; box-sizing: border-box; font-size: 14px; }
+        .search-box:focus { border-color: var(--primary); outline: none; }
+
+        .list-container { display: flex; flex-direction: column; gap: 10px; max-height: 350px; overflow-y: auto; padding-right: 5px; }
+        .list-item { padding: 12px; border: 1px solid #eef0f5; border-radius: 8px; cursor: pointer; transition: all 0.2s; background: #fafafa; }
+        .list-item:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0,0,0,0.05); border-color: #ddd; }
+        .list-item.prob-item { border-left: 4px solid var(--secondary); }
+        .list-item.lux-item { border-left: 4px solid var(--primary); }
+        .list-item h4 { margin: 0 0 5px 0; font-size: 14px; }
+        .list-item p { margin: 0; font-size: 12px; color: #666; }
+
+        /* Jobb oszlop: Térkép */
+        .map-wrapper { flex: 2; position: relative; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.08); display: flex; flex-direction: column; }
+        #map { flex: 1; width: 100%; }
+
+        /* Popups */
+        .popup-info { font-size: 13.5px; line-height: 1.5; min-width: 220px; }
+        .title-prob { color: var(--secondary); font-weight: bold; border-bottom: 1px solid #eee; padding-bottom: 4px; margin-bottom: 6px; }
+        .title-lux { color: var(--primary); font-weight: bold; border-bottom: 1px solid #eee; padding-bottom: 4px; margin-bottom: 6px; }
+        
+        /* Form popup az index oldalon (Beküldés) */
+        .form-popup { width: 250px; font-size: 13px; }
+        .form-popup label { display: block; margin-top: 8px; font-weight: bold; }
+        .form-popup input, .form-popup textarea { width: 100%; padding: 6px; margin-top: 4px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; resize: vertical; }
+        .cat-container { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+        .cat-btn { background: #fff; border: 1px solid #ccc; padding: 4px 8px; border-radius: 15px; font-size: 11px; cursor: pointer; }
+        .cat-btn.selected { background: var(--secondary); color: white; border-color: var(--secondary); }
+        .type-select { display: flex; gap: 8px; margin-bottom: 8px; }
+        .type-btn { flex: 1; padding: 6px; border: 1px solid #ccc; border-radius: 4px; text-align: center; cursor: pointer; font-weight: bold; font-size: 12px; }
+        .type-btn.prob.active { background: var(--secondary); color: white; border-color: var(--secondary); }
+        .type-btn.lux.active { background: var(--primary); color: white; border-color: var(--primary); }
+        .submit-btn { width: 100%; margin-top: 12px; padding: 8px; background: var(--secondary); color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; }
+        
+        @media(max-width: 768px) {
+            .main-container { flex-direction: column; overflow: auto; }
+            .sidebar { max-width: 100%; }
+            .map-wrapper { height: 450px; flex: none; }
+        }
     </style>
 </head>
 <body>
 
-    <h2>Nagykáta és környéke — Közösségi Térkép</h2>
-    <p>Narancssárga pontok: Lakossági problémák | Kék pontok: Közpénz-luxus bejegyzések</p>
-    
-    <div id="map"></div>
+    <header>
+        <h1>Nagykáta és Környéke Civil Közösségi Térkép</h1>
+        <p>Közösen egy átláthatóbb és élhetőbb városért</p>
+    </header>
+
+    <div class="main-container">
+        <div class="sidebar">
+            <div class="card civil-info">
+                <h3>Miről szól ez a kezdeményezés?</h3>
+                <p>Ez egy független, lakossági és társadalmi platform, amelynek célja Nagykáta és 5 km-es körzetének fejlesztése, valamint a helyi közpénzköltések átláthatóbbá tétele. Hiszünk abban, hogy a változás a mi kezünkben van.</p>
+                <p><b>Hogyan használd?</b></p>
+                <ol>
+                    <li>Kattints a térképre a probléma vagy mutyi pontos helyén.</li>
+                    <li>Töltsd ki az űrlapot, majd küldd be.</li>
+                    <li>A bejelentésed az adminisztrátori moderáció (jóváhagyás) után azonnal megjelenik mindenki számára a térképen és a listában is.</li>
+                </ol>
+            </div>
+
+            <div class="card">
+                <h3>Bejelentett ügyek listája</h3>
+                <input type="text" id="search-input" class="search-box" placeholder="Keresés leírás vagy kategória alapján...">
+                <div id="items-list" class="list-container">
+                    <p style="color:#888; font-size:13px;">Nincsenek még jóváhagyott ügyek.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="map-wrapper">
+            <div id="map"></div>
+        </div>
+    </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+        import { getDatabase, ref, push, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyDCICsJnMdxTXDpRSNpaCtdAWAP3-sH8i4",
@@ -43,58 +116,148 @@
         const db = getDatabase(app);
         const markersRef = ref(db, 'problems');
 
-        var map = L.map('map').setView([47.4161, 19.7423], 13);
+        const nagykataCoords = [47.4161, 19.7423];
+        const maxDistance = 5000;
+        var map = L.map('map').setView(nagykataCoords, 13);
+        
+        let allMarkers = {}; // Térkép markerek tárolása eléréshez
+        let currentMarkersData = []; // Lista szűréshez
 
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap'
-        }).addTo(map);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
+        L.circle(nagykataCoords, { color: '#4827AF', fillColor: '#4827AF', fillOpacity: 0.02, radius: maxDistance }).addTo(map);
 
+        var temporaryMarker, clickedLatLng;
+        window.userType = 'problem'; window.userCat = '';
+
+        window.switchUserType = function(t) {
+            window.userType = t;
+            document.getElementById('u-prob-sec').style.display = t==='problem'?'block':'none';
+            document.getElementById('u-lux-sec').style.display = t==='lux'?'block':'none';
+            document.querySelector('.form-popup .type-btn.prob').className = t==='problem'?'type-btn prob active':'type-btn prob';
+            document.querySelector('.form-popup .type-btn.lux').className = t==='lux'?'type-btn lux active':'type-btn lux';
+            document.getElementById('u-submit').style.background = t==='problem'?'#FF4208':'#4827AF';
+        };
+        window.selectUserCat = function(e, c) {
+            document.querySelectorAll('.form-popup .cat-btn').forEach(b => b.classList.remove('selected'));
+            e.classList.add('selected'); window.userCat = c;
+        };
+
+        // KATTINTÁS ÚJ PONT FELVÉTELÉHEZ (BÁRKI)
+        map.on('click', function(e) {
+            if(map.distance(e.latlng, nagykataCoords) > maxDistance) { alert("A körzeten kívül esik!"); return; }
+            clickedLatLng = e.latlng;
+            if(temporaryMarker) map.removeLayer(temporaryMarker);
+
+            temporaryMarker = L.circleMarker(e.latlng, { radius: 12, fillColor: '#FF4208', color: '#fff', weight: 2, fillOpacity: 0.6 }).addTo(map);
+            let formHtml = `
+                <div class="form-popup">
+                    <div class="type-select">
+                        <div class="type-btn prob active" onclick="switchUserType('problem')">Probléma</div>
+                        <div class="type-btn lux" onclick="switchUserType('lux')">Közpénz-luxus</div>
+                    </div>
+                    <div id="u-prob-sec">
+                        <label>Probléma leírása:</label><textarea id="up-desc"></textarea>
+                        <label>Kategória:</label>
+                        <div class="cat-container">
+                            <div class="cat-btn" onclick="selectUserCat(this,'Úthiba')">Úthiba</div>
+                            <div class="cat-btn" onclick="selectUserCat(this,'Közvilágítás')">Közvilágítás</div>
+                            <div class="cat-btn" onclick="selectUserCat(this,'Zöldterület')">Zöldterület</div>
+                            <div class="cat-btn" onclick="selectUserCat(this,'Hulladék')">Hulladék</div>
+                            <div class="cat-btn" onclick="selectUserCat(this,'Egyéb')">Egyéb</div>
+                        </div>
+                        <label>Megoldási javaslat:</label><textarea id="up-sol"></textarea>
+                        <label>Ki a felelős?</label><input type="text" id="up-own">
+                        <label>Költség (Ft):</label><input type="number" id="up-cost">
+                    </div>
+                    <div id="u-lux-sec" style="display:none;">
+                        <label>Luxizás / Mutyi leírása:</label><textarea id="ul-desc"></textarea>
+                        <label>Résztvevők:</label><input type="text" id="ul-act">
+                        <label>Időszak / Dátum:</label><input type="text" id="ul-date">
+                        <label>Elherdált összeg (Ft):</label><input type="number" id="ul-cost">
+                    </div>
+                    <button id="u-submit" class="submit-btn">Beküldés moderálásra</button>
+                </div>
+            `;
+            temporaryMarker.bindPopup(formHtml, { maxWidth: 270 }).openPopup();
+            window.userType = 'problem'; window.userCat = '';
+
+            setTimeout(() => {
+                const btn = document.querySelector('.leaflet-popup #u-submit');
+                if(btn) btn.onclick = function() {
+                    let d = { lat: clickedLatLng.lat, lng: clickedLatLng.lng, type: window.userType, approved: false };
+                    if(window.userType === 'problem') {
+                        d.desc = document.querySelector('.leaflet-popup #up-desc').value;
+                        d.category = window.userCat || 'Egyéb';
+                        d.solution = document.querySelector('.leaflet-popup #up-sol').value || 'Nincs';
+                        d.owner = document.querySelector('.leaflet-popup #up-own').value || 'Nem ismert';
+                        d.cost = document.querySelector('.leaflet-popup #up-cost').value || 0;
+                    } else {
+                        d.desc = document.querySelector('.leaflet-popup #ul-desc').value;
+                        d.actors = document.querySelector('.leaflet-popup #ul-act').value || 'Nem ismert';
+                        d.date = document.querySelector('.leaflet-popup #ul-date').value || 'Nincs megadva';
+                        d.cost = document.querySelector('.leaflet-popup #ul-cost').value || 0;
+                    }
+                    if(!d.desc) { alert("Leírás kötelező!"); return; }
+                    push(markersRef, d).then(() => {
+                        alert("Bejelentés sikeresen beküldve! Moderálás után kikerül a térképre.");
+                        map.closePopup(); map.removeLayer(temporaryMarker);
+                    });
+                };
+            }, 150);
+        });
+
+        // ADATOK BEOLVASÁSA (CSAK APPROVED: TRUE)
         onValue(markersRef, (snapshot) => {
-            map.eachLayer((layer) => {
-                if (layer instanceof L.CircleMarker) { map.removeLayer(layer); }
-            });
-
+            Object.keys(allMarkers).forEach(k => map.removeLayer(allMarkers[k]));
+            allMarkers = {}; currentMarkersData = [];
+            
             const data = snapshot.val();
             if (data) {
                 Object.keys(data).forEach(key => {
                     const item = data[key];
-                    const isProb = item.type !== 'lux';
-                    
-                    let popupContent = '';
-
-                    if(isProb) {
-                        popupContent = `
-                            <div class="popup-info">
-                                <div class="title-prob">[Probléma] — ${item.category}</div>
-                                <b>Leírás:</b> ${item.desc}<br>
-                                <b>Javasolt megoldás:</b> ${item.solution}<br>
-                                <b>Felelős:</b> ${item.owner}<br>
-                                <b>Becsült költség:</b> <span class="cost-tag">${Number(item.cost).toLocaleString()} Ft</span>
-                            </div>
-                        `;
-                    } else {
-                        popupContent = `
-                            <div class="popup-info">
-                                <div class="title-lux">[Közpénz-luxus]</div>
-                                <b>Leírás:</b> ${item.desc}<br>
-                                <b>Érintettek/Résztvevők:</b> ${item.actors}<br>
-                                <b>Időszak:</b> ${item.date}<br>
-                                <b>Becsült összeg:</b> <span class="cost-lux">${Number(item.cost).toLocaleString()} Ft</span>
-                            </div>
-                        `;
+                    if(item.approved === true) {
+                        currentMarkersData.push({ key: key, ...item });
+                        const isProb = item.type !== 'lux';
+                        let html = isProb 
+                            ? `<div class="popup-info"><div class="title-prob">[Probléma] — ${item.category}</div><b>Leírás:</b> ${item.desc}<br><b>Megoldás:</b> ${item.solution}<br><b>Felelős:</b> ${item.owner}<br><b>Költség:</b> <span class="cost-tag">${Number(item.cost).toLocaleString()} Ft</span></div>`
+                            : `<div class="popup-info"><div class="title-lux">[Közpénz-luxus]</div><b>Leírás:</b> ${item.desc}<br><b>Résztvevők:</b> ${item.actors}<br><b>Dátum:</b> ${item.date}<br><b>Összeg:</b> <span class="cost-tag" style="color:var(--primary);">${Number(item.cost).toLocaleString()} Ft</span></div>`;
+                        
+                        let m = L.circleMarker([item.lat, item.lng], {
+                            radius: 14, fillColor: isProb ? '#FF4208' : '#4827AF', color: '#fff', weight: 2, fillOpacity: 0.85
+                        }).addTo(map).bindPopup(html);
+                        allMarkers[key] = m;
                     }
-
-                    L.circleMarker([item.lat, item.lng], {
-                        radius: 14,
-                        fillColor: isProb ? '#FF4208' : '#4827AF',
-                        color: '#fff',
-                        weight: 2,
-                        opacity: 1,
-                        fillOpacity: 0.85
-                    }).addTo(map).bindPopup(popupContent);
                 });
             }
+            renderList(currentMarkersData);
         });
+
+        function renderList(listData) {
+            const container = document.getElementById('items-list');
+            if(listData.length === 0) { container.innerHTML = '<p style="color:#888; font-size:13px;">Nincs találat.</p>'; return; }
+            container.innerHTML = '';
+            listData.forEach(item => {
+                const isProb = item.type !== 'lux';
+                const div = document.createElement('div');
+                div.className = `list-item ${isProb ? 'prob-item' : 'lux-item'}`;
+                div.innerHTML = `<h4>${isProb ? '['+item.category+']' : '[Közpénz-luxus]'}</h4><p>${item.desc.substring(0,60)}${item.desc.length > 60 ? '...' : ''}</p><p style="margin-top:4px; font-weight:bold; color:${isProb?'var(--secondary)':'var(--primary)'}">${Number(item.cost).toLocaleString()} Ft</p>`;
+                div.onclick = () => {
+                    map.setView([item.lat, item.lng], 15);
+                    allMarkers[item.key].openPopup();
+                };
+                container.appendChild(div);
+            });
+        }
+
+        // KERESŐ MEZŐ UKCIÓJA
+        document.getElementById('search-input').oninput = function(e) {
+            let val = e.target.value.toLowerCase();
+            let filtered = currentMarkersData.filter(i => 
+                (i.desc && i.desc.toLowerCase().includes(val)) || 
+                (i.category && i.category.toLowerCase().includes(val))
+            );
+            renderList(filtered);
+        };
     </script>
 </body>
 </html>
